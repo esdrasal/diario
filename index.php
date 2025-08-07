@@ -272,7 +272,7 @@ if (isset($_GET['action'], $_GET['id'])) {
         </div>
 
         <div class="centered" style="margin-top: 1em;">
-            <button type="submit"><?= isset($lecturaEditar) ? 'Actualizar Lectura' : 'Guardar Lectura' ?></button>
+            <button type="submit"><?= isset($lecturaEditar) ? 'Actualizar Lectura' : 'Guardar' ?></button>
         </div>
     </form>
 

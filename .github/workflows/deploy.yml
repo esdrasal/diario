@@ -3,23 +3,23 @@ name: Deploy to InfinityFree FTP
 on:
   push:
     branches:
-      - master  # Usa "main" si tu rama principal es main
+      - master  # o main
 
 jobs:
   ftp-deploy:
     runs-on: ubuntu-latest
-    environment: Produccion
+    environment: Produccion  # si usas secretos ligados al entorno
 
     steps:
       - uses: actions/checkout@v4
 
       - name: FTP Deploy
-        uses: SamKirkland/FTP-Deploy-Action@v4
+        uses: SamKirkland/FTP-Deploy-Action@v4  # <-- esta línea es la clave
         with:
-          server: ${{ secrets.FTP_server }}
-          username: ${{ secrets.FTP_username }}
-          password: ${{ secrets.FTP_password }}
-          port: 21
+          server: ${{ secrets.FTP_SERVER }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
           protocol: ftp
+          port: 21
           local-dir: ./
           server-dir: /htdocs

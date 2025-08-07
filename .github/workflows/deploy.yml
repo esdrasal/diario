@@ -3,18 +3,18 @@ name: Deploy to InfinityFree FTP
 on:
   push:
     branches:
-      - master  # o main
+      - master
 
 jobs:
   ftp-deploy:
     runs-on: ubuntu-latest
-    environment: Produccion  # si usas secretos ligados al entorno
+    environment: Produccion
 
     steps:
       - uses: actions/checkout@v4
 
       - name: FTP Deploy
-        uses: SamKirkland/FTP-Deploy-Action@v4  # <-- esta línea es la clave
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.4
         with:
           server: ${{ secrets.FTP_SERVER }}
           username: ${{ secrets.FTP_USERNAME }}

@@ -517,5 +517,4 @@ if (isset($_GET['action'], $_GET['id'])) {
     precargarLectura();
     </script>
 </body>
-
 </html>

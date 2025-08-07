@@ -1,0 +1,78 @@
+body {
+    font-family: Arial, sans-serif;
+    margin: 20px;
+}
+a.back-link {
+    text-decoration: none;
+    color: #0366d6;
+    font-weight: bold;
+    margin-bottom: 12px;
+    display: inline-block;
+}
+h1 {
+    margin-bottom: 24px;
+}
+details {
+    margin-bottom: 24px;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    padding: 8px 12px;
+    background: #fafafa;
+}
+summary {
+    font-size: 1.3em;
+    font-weight: bold;
+    cursor: pointer;
+    user-select: none;
+    outline: none;
+}
+.book-section {
+    margin-top: 16px;
+}
+.book-title {
+    font-weight: bold;
+    margin-bottom: 6px;
+    font-size: 1.1em;
+    padding-left: 4px;
+    border-left: 4px solid #6c757d;
+}
+.chapters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+.chapters-break {
+    flex-basis: 100%;
+    height: 10px; /* espacio vertical entre líneas */
+}
+.chapter-form {
+    margin: 0;
+}
+.chapter-button {
+    width: 36px;
+    height: 36px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.85em;
+    display: inline-flex;
+    justify-content: center;
+    align-items: center;
+    user-select: none;
+    background-color: #eee;
+    transition: background-color 0.3s, border-color 0.3s;
+}
+.chapter-button.read {
+    background-color: #a8e6a1;
+    border-color: #3c9d0e;
+    font-weight: bold;
+}
+.chapter-button.not-read:hover {
+    background-color: #ddd;
+}
+.container {
+    max-width: 900px; /* o el ancho que prefieras */
+    margin: 0 auto;   /* centra horizontalmente */
+    padding: 20px;
+    box-sizing: border-box;
+}

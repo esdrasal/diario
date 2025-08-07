@@ -1,0 +1,47 @@
+body {
+    font-family: Arial, sans-serif;
+    padding: 30px;
+    background: #f9f9f9;
+}
+
+.container {
+    max-width: 1000px;
+    margin: auto;
+}
+
+h1 {
+    text-align: center;
+}
+
+.chapter-block {
+    margin-bottom: 30px;
+}
+
+.verses {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.verse-button {
+    padding: 8px 12px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    background-color: #eee;
+}
+
+.verse-button.read {
+    background-color: #4CAF50;
+    color: white;
+}
+
+.verse-form {
+    display: inline-block;
+}
+
+.back-link {
+    display: inline-block;
+    margin-bottom: 20px;
+    text-decoration: none;
+}

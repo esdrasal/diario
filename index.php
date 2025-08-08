@@ -285,8 +285,11 @@ if (isset($_GET['action'], $_GET['id'])) {
             <p><strong>Versículos leído:</strong> <?= $totalLeidos ?>, faltan por leer <?= $totalVersiculos -  $totalLeidos?> versículos</p>
             <h3>📘 <a href="chapters.php" style="color:inherit;">Progreso por libros</a></h3>
             <ul>
-                <?php foreach ($versiculosLeidos as $libro => $cantidad): 
-                    $porcentaje = round(($cantidad / array_sum($versiculosPorCapitulo[$libro])) * 100, 1);
+                <?php foreach ($versiculosPorCapitulo as $libro => $capitulos): 
+                    $cantidad = $versiculosLeidos[$libro] ?? 0;
+                    if ($cantidad == 0) continue; // Ocultar libros sin lecturas
+                    $totalVersiculosLibro = array_sum($capitulos);
+                    $porcentaje = $totalVersiculosLibro > 0 ? round(($cantidad / $totalVersiculosLibro) * 100, 1) : 0;
                 ?>
                     <li>
                         <?php if ($porcentaje == 100) { ?>
@@ -295,8 +298,8 @@ if (isset($_GET['action'], $_GET['id'])) {
                             </a> ✅
                         <?php } else { ?>
                             <a href="book.php?book=<?= urlencode($libro) ?>">
-                            <?= htmlspecialchars($libro) ?>:
-                            <?= $cantidad ?> / <?= array_sum($versiculosPorCapitulo[$libro]) ?> (<?= $porcentaje ?>%)
+                            <?= htmlspecialchars($libro) ?></a>: <?= $porcentaje ?>%, has leido
+                            <?= $cantidad ?> versículos de <?= $totalVersiculosLibro ?> 
                         <?php } ?>  
                     </li>
                 <?php endforeach; ?>

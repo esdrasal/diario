@@ -282,17 +282,22 @@ if (isset($_GET['action'], $_GET['id'])) {
     <div class="collapsible-section">
         <h2 onclick="toggleSection('progreso')">📈 Progreso: <?= $progresoTotal ?>%</h2>
         <div id="progreso" class="collapsible-content" style="display: none;">
-            <p><strong>Total leído:</strong> <?= $totalLeidos ?> / <?= $totalVersiculos ?> versículos</p>
-            <h3>📘 <a href="chapters.php" style="text-decoration:none; color:inherit;">Progreso por libros</a></h3>
+            <p><strong>Versículos leído:</strong> <?= $totalLeidos ?>, faltan por leer <?= $totalVersiculos -  $totalLeidos?> versículos</p>
+            <h3>📘 <a href="chapters.php" style="color:inherit;">Progreso por libros</a></h3>
             <ul>
                 <?php foreach ($versiculosLeidos as $libro => $cantidad): 
                     $porcentaje = round(($cantidad / array_sum($versiculosPorCapitulo[$libro])) * 100, 1);
                 ?>
                     <li>
-                        <a href="book.php?book=<?= urlencode($libro) ?>">
+                        <?php if ($porcentaje == 100) { ?>
+                            <a href="book.php?book=<?= urlencode($libro) ?>">
+                                <?= htmlspecialchars($libro) ?>
+                            </a> ✅
+                        <?php } else { ?>
+                            <a href="book.php?book=<?= urlencode($libro) ?>">
                             <?= htmlspecialchars($libro) ?>:
-                        </a>
-                        <?= $cantidad ?> / <?= array_sum($versiculosPorCapitulo[$libro]) ?> (<?= $porcentaje ?>%)
+                            <?= $cantidad ?> / <?= array_sum($versiculosPorCapitulo[$libro]) ?> (<?= $porcentaje ?>%)
+                        <?php } ?>  
                     </li>
                 <?php endforeach; ?>
             </ul>

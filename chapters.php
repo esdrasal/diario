@@ -56,6 +56,35 @@ foreach ($lecturas as $lectura) {
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (isset($_POST['mark_all'], $_POST['book'])) {
+        $book = $_POST['book'];
+        if (array_key_exists($book, $capitulosPorLibro)) {
+            $totalChapters = $capitulosPorLibro[$book];
+            
+            // Versículos del primer y último capítulo
+            $firstChapter = 1;
+            $firstVerse = 1;
+            $lastChapter = $totalChapters;
+            $lastVerse = $versiculosPorCapitulo[$book][$lastChapter] ?? 1;
+
+            // Guardar UNA sola lectura con todo el rango
+            guardarLecturaDB(
+                $pdo,
+                $_SESSION['usuario_id'],
+                date('Y-m-d'),
+                $book,
+                $firstChapter,
+                $firstVerse,
+                $lastChapter,
+                $lastVerse,
+                '',
+                []
+            );
+        }
+        header('Location: chapters.php');
+        exit;
+    }
+
     if (isset($_POST['book'], $_POST['chapter'], $_POST['action'])) {
         $book = $_POST['book'];
         $chapter = (int)$_POST['chapter'];
@@ -93,12 +122,30 @@ function renderBookChapters($books, $capitulosPorLibro, $capitulosLeidos) {
     foreach ($books as $book) {
         if (!isset($capitulosPorLibro[$book])) continue;
         $totalChapters = $capitulosPorLibro[$book];
+
+        // Contar capítulos leídos
+        $readCount = !empty($capitulosLeidos[$book]) ? count($capitulosLeidos[$book]) : 0;
+        $isCompleted = ($readCount === $totalChapters);
         ?>
         <div class="book-section">
             <div class="book-title">
                 <a href="book.php?book=<?= urlencode($book) ?>"><?= htmlspecialchars($book) ?></a>
+                
+                <?php if ($isCompleted): ?>
+                    <button type="button" class="toggle-chapters" onclick="toggleChapters(this)">
+                        ✅
+                    </button>
+                <?php else: ?>
+                    <form method="POST" style="display:inline;" 
+                          onsubmit="return confirmMarkBook('<?= htmlspecialchars($book) ?>')">
+                        <input type="hidden" name="book" value="<?= htmlspecialchars($book) ?>">
+                        <input type="hidden" name="mark_all" value="1">
+                        <button type="submit" class="mark-all-button">✅</button>
+                    </form>
+                <?php endif; ?>
             </div>
-            <div class="chapters">
+
+            <div class="chapters" style="<?= $isCompleted ? 'display:none;' : '' ?>">
                 <?php 
                 for ($i = 1; $i <= $totalChapters; $i++): ?>
                     <form method="POST" class="chapter-form" title="<?= $book ?> capítulo <?= $i ?>">
@@ -143,5 +190,19 @@ function renderBookChapters($books, $capitulosPorLibro, $capitulosLeidos) {
         <?php renderBookChapters($nuevoTestamento, $capitulosPorLibro, $capitulosLeidos); ?>
     </details>
  </div>
+<script>
+    function toggleChapters(button) {
+        const chaptersDiv = button.closest('.book-section').querySelector('.chapters');
+        if (chaptersDiv.style.display === 'none') {
+            chaptersDiv.style.display = 'flex';
+        } else {
+            chaptersDiv.style.display = 'none';
+        }
+    }
+
+    function confirmMarkBook(bookName) {
+        return confirm(`Estás a punto de marcar todo el libro "${bookName}" como leído.\n¿Quieres continuar?`);
+    }
+</script>
 </body>
 </html>

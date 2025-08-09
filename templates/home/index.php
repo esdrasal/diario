@@ -1,199 +1,17 @@
-<?php
-
-ini_set('display_errors', 1);
-ini_set('display_startup_errors', 1);
-error_reporting(E_ALL);
-
-require_once 'includes/auth.php';
-require_once 'includes/config.php';
-require_once 'includes/functions.php';
-
-requireAuth();
-
-// Usar base de datos en lugar de archivos
-$versiculosPorCapitulo = getVersiculosPorCapitulo($pdo);
-$capitulosPorLibro = getCapitulosPorLibro($pdo);
-
-// Obtener lecturas del usuario desde la base de datos
-$lecturasDB = obtenerLecturasUsuario($pdo, $_SESSION['usuario_id']);
-
-// Convertir lecturas de DB al formato esperado por las funciones existentes
-$lecturas = [];
-foreach ($lecturasDB as $lecturaDB) {
-    $favoritos_decoded = json_decode($lecturaDB['favoritos'], true) ?? [];
-    $favoritos_formatted = [];
-    foreach ($favoritos_decoded as $fav) {
-        if (is_string($fav)) {
-            $favoritos_formatted[] = $fav;
-        }
-    }
-    
-    $lecturas[] = [
-        'id' => $lecturaDB['id'],
-        'date' => $lecturaDB['fecha'],
-        'book' => $lecturaDB['libro_nombre'],
-        'from' => $lecturaDB['libro_nombre'] . ' ' . $lecturaDB['capitulo_desde'] . ':' . $lecturaDB['versiculo_desde'],
-        'to' => $lecturaDB['libro_nombre'] . ' ' . $lecturaDB['capitulo_hasta'] . ':' . $lecturaDB['versiculo_hasta'],
-        'notes' => $lecturaDB['notas'],
-        'favorites' => $favoritos_formatted,
-    ];
-}
-
-$versiculosLeidos = contarVersiculosLeidos($lecturas, $pdo);
-$totalVersiculos = 0;
-foreach ($versiculosPorCapitulo as $libro => $capitulos) {
-    $totalVersiculos += array_sum($capitulos);
-}
-$totalLeidos = array_sum($versiculosLeidos);
-$progresoTotal = $totalVersiculos > 0 ? round(($totalLeidos / $totalVersiculos) * 100, 2) : 0;
-
-$errors = [];
-$lecturaEditar = null;
-
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $book = $_POST['book'] ?? '';
-    $fromCap = $_POST['from_chapter'] ?? '';
-    $fromVer = $_POST['from_verse'] ?? '';
-    $toCap = $_POST['to_chapter'] ?? '';
-    $toVer = $_POST['to_verse'] ?? '';
-
-    // Validaciones básicas
-    if (!$book) {
-        $errors[] = "Debe seleccionar un libro.";
-    }
-    if (!$fromCap || !ctype_digit($fromCap)) {
-        $errors[] = "Debe seleccionar capítulo inicial válido.";
-    }
-    if (!$fromVer || !ctype_digit($fromVer)) {
-        $errors[] = "Debe seleccionar versículo inicial válido.";
-    }
-    if (!$toCap || !ctype_digit($toCap)) {
-        $errors[] = "Debe seleccionar capítulo final válido.";
-    }
-    if (!$toVer || !ctype_digit($toVer)) {
-        $errors[] = "Debe seleccionar versículo final válido.";
-    }
-
-    $fromCap = (int)$fromCap;
-    $fromVer = (int)$fromVer;
-    $toCap = (int)$toCap;
-    $toVer = (int)$toVer;
-
-    if (empty($errors)) {
-        // Validar libro existe
-        if (!isset($versiculosPorCapitulo[$book])) {
-            $errors[] = "Libro no válido.";
-        } else {
-            // Validar capítulos y versículos existen
-            if (!isset($versiculosPorCapitulo[$book][$fromCap])) {
-                $errors[] = "Capítulo inicial ($fromCap) no válido para el libro $book.";
-            } else {
-                if ($fromVer < 1 || $fromVer > $versiculosPorCapitulo[$book][$fromCap]) {
-                    $errors[] = "Versículo inicial ($fromVer) fuera de rango para capítulo $fromCap (máximo {$versiculosPorCapitulo[$book][$fromCap]}).";
-                }
-            }
-            if (!isset($versiculosPorCapitulo[$book][$toCap])) {
-                $errors[] = "Capítulo final ($toCap) no válido para el libro $book.";
-            } else {
-                if ($toVer < 1 || $toVer > $versiculosPorCapitulo[$book][$toCap]) {
-                    $errors[] = "Versículo final ($toVer) fuera de rango para capítulo $toCap (máximo {$versiculosPorCapitulo[$book][$toCap]}).";
-                }
-            }
-            // Validar orden correcto
-            if ($fromCap > $toCap || ($fromCap === $toCap && $fromVer > $toVer)) {
-                $errors[] = "'Desde' debe ser menor o igual que 'Hasta'.";
-            }
-        }
-    }
-
-    if (empty($errors)) {
-        $favoritesInput = array_filter(array_map('trim', explode(',', $_POST['favorites'] ?? '')));
-        $favorites = [];
-
-        foreach ($favoritesInput as $fav) {
-            if (preg_match('/^\d+:\d+$/', $fav)) {
-                $favorites[] = $book . ' ' . $fav;
-            }
-        }
-
-        if (!empty($_POST['edit_id'])) {
-            $editId = (int)$_POST['edit_id'];
-            actualizarLectura($pdo, $editId, $_SESSION['usuario_id'], 
-                $_POST['date'] ?? date('Y-m-d'), 
-                $book, 
-                $fromCap, 
-                $fromVer, 
-                $toCap, 
-                $toVer, 
-                $_POST['notes'] ?? '', 
-                $favorites
-            );
-        } else {
-            guardarLecturaDB($pdo, $_SESSION['usuario_id'], 
-                $_POST['date'] ?? date('Y-m-d'), 
-                $book, 
-                $fromCap, 
-                $fromVer, 
-                $toCap, 
-                $toVer, 
-                $_POST['notes'] ?? '', 
-                $favorites
-            );
-        }
-
-        header('Location: index.php');
-        exit;
-    }
-}
-
-if (isset($_GET['action'], $_GET['id'])) {
-    $action = $_GET['action'];
-    $id = (int)$_GET['id'];
-    
-    if ($action === 'delete') {
-        eliminarLectura($pdo, $id, $_SESSION['usuario_id']);
-        header('Location: index.php');
-        exit;
-    } elseif ($action === 'edit') {
-        foreach ($lecturas as $lectura) {
-            if ($lectura['id'] === $id) {
-                $lecturaEditar = $lectura;
-                break;
-            }
-        }
-        if (!isset($lecturaEditar)) {
-            header('Location: index.php');
-            exit;
-        }
-    }
-}
-
-?>
-
 <!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8" />
     <title>Diario de Lectura Bíblica</title>
-    <link rel="stylesheet" href="assets/style.css" />
-    <style>
-      .form-pasaje select {
-        margin-right: 10px;
-        min-width: 100px;
-      }
-      .separator {
-        margin: 0 5px;
-        font-weight: bold;
-      }
-    </style>
+    <link rel="stylesheet" href="/assets/style.css" />
 </head>
 <body>
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0px;">
+    <div class="app-header">
         <h1>📖 Diario de Lectura Bíblica</h1>
     </div>
-    <div style="margin-bottom: 20px; margin-top: -20px;">
-        <span>Bienvenido, <?= htmlspecialchars($_SESSION['usuario_nombre']) ?>!</span> | 
-        <a href="logout.php">Cerrar Sesión</a>
+    <div class="user-info">
+        <span>Bienvenido, <?= htmlspecialchars($usuario['nombre']) ?>!</span> | 
+        <a href="/logout">Cerrar Sesión</a>
     </div>
     <form method="POST" novalidate>
         <input type="hidden" name="edit_id" value="<?= isset($lecturaEditar) ? $lecturaEditar['id'] : '' ?>">
@@ -242,7 +60,7 @@ if (isset($_GET['action'], $_GET['id'])) {
         </div>
 
         <?php if (!empty($errors)): ?>
-            <div class="error-messages" style="color: red; margin-bottom: 1em;">
+            <div class="error-messages">
                 <ul>
                     <?php foreach ($errors as $error): ?>
                         <li><?= htmlspecialchars($error) ?></li>
@@ -251,7 +69,7 @@ if (isset($_GET['action'], $_GET['id'])) {
             </div>
         <?php endif; ?>
 
-        <div class="form-row" style="flex-direction: column; align-items: flex-start;">
+        <div class="form-row form-notes">
             <label for="notes">📝 Notas:</label>
             <textarea name="notes" id="notes" rows="5"><?= isset($lecturaEditar) ? htmlspecialchars($lecturaEditar['notes']) : '' ?></textarea>
         </div>
@@ -266,11 +84,11 @@ if (isset($_GET['action'], $_GET['id'])) {
                 value="<?= isset($lecturaEditar) ? htmlspecialchars(implode(', ', array_map(function($f) use ($lecturaEditar) {
                     return trim(str_replace($lecturaEditar['book'] . ' ', '', $f));
                 }, $lecturaEditar['favorites'] ?? []))) : '' ?>"
-                style="flex: 1;"
+                class="form-favorites"
             />
         </div>
 
-        <div class="centered" style="margin-top: 1em;">
+        <div class="centered">
             <button type="submit"><?= isset($lecturaEditar) ? 'Actualizar Lectura' : 'Guardar' ?></button>
         </div>
     </form>
@@ -279,10 +97,10 @@ if (isset($_GET['action'], $_GET['id'])) {
 
     <!-- Progreso -->
     <div class="collapsible-section">
-        <h2 onclick="toggleSection('progreso')">📈 Progreso: <?= $progresoTotal ?>%</h2>
+        <h2 onclick="toggleSection('progreso')">📈 Progreso: <?= $progreso['porcentaje'] ?>%</h2>
         <div id="progreso" class="collapsible-content" style="display: none;">
-            <p><strong>Versículos leído:</strong> <?= $totalLeidos ?>, faltan por leer <?= $totalVersiculos -  $totalLeidos?> versículos</p>
-            <h3>📘 <a href="chapters.php" style="color:inherit;">Progreso por libros</a></h3>
+            <p><strong>Versículos leídos:</strong> <?= $progreso['total_leidos'] ?>, faltan por leer <?= $progreso['total_versiculos'] - $progreso['total_leidos'] ?> versículos</p>
+            <h3>📘 <a href="/chapters" class="inherit-color">Progreso por libros</a></h3>
             <ul>
                 <?php foreach ($versiculosPorCapitulo as $libro => $capitulos): 
                     $cantidad = $versiculosLeidos[$libro] ?? 0;
@@ -292,12 +110,12 @@ if (isset($_GET['action'], $_GET['id'])) {
                 ?>
                     <li>
                         <?php if ($porcentaje == 100) { ?>
-                            <a href="book.php?book=<?= urlencode($libro) ?>">
+                            <a href="/book?book=<?= urlencode($libro) ?>">
                                 <?= htmlspecialchars($libro) ?>
                             </a> ✅
                         <?php } else { ?>
-                            <a href="book.php?book=<?= urlencode($libro) ?>">
-                            <?= htmlspecialchars($libro) ?></a>: <?= $porcentaje ?>%, has leido
+                            <a href="/book?book=<?= urlencode($libro) ?>">
+                            <?= htmlspecialchars($libro) ?></a>: <?= $porcentaje ?>%, has leído
                             <?= $cantidad ?> versículos de <?= $totalVersiculosLibro ?> 
                         <?php } ?>  
                     </li>
@@ -323,8 +141,8 @@ if (isset($_GET['action'], $_GET['id'])) {
                             ⭐ <em>Favoritos:</em> <?= implode(', ', $lectura['favorites']) ?>
                         <?php endif; ?>
                         <br />
-                        <a href="index.php?action=edit&id=<?= $lectura['id'] ?>">✏️ Editar</a> |
-                        <a href="index.php?action=delete&id=<?= $lectura['id'] ?>" onclick="return confirm('¿Eliminar esta lectura?')">🗑️ Eliminar</a>
+                        <a href="/?action=edit&id=<?= $lectura['id'] ?>">✏️ Editar</a> |
+                        <a href="/?action=delete&id=<?= $lectura['id'] ?>" onclick="return confirm('¿Eliminar esta lectura?')">🗑️ Eliminar</a>
                     </li>
                 <?php endforeach; ?>
             </ul>
@@ -393,8 +211,6 @@ if (isset($_GET['action'], $_GET['id'])) {
         const caps = versiculosPorCapitulo[libro];
 
         fillChapters(fromChapterSelect, caps);
-
-        // Para "hasta" mostrar inicialmente todos los capítulos también (igual que desde)
         fillChapters(toChapterSelect, caps);
 
         fromVerseSelect.innerHTML = '<option value="">Versículo desde</option>';
@@ -429,18 +245,13 @@ if (isset($_GET['action'], $_GET['id'])) {
         }
         toChapterSelect.disabled = false;
 
-        // Si capítulo "hasta" es menor que "desde", actualizarlo al mínimo (fromCap)
+        // Si capítulo "hasta" es menor que "desde", actualizarlo
         const currentToCap = parseInt(toChapterSelect.value);
         if (!currentToCap || currentToCap < fromCap) {
             toChapterSelect.value = fromCap.toString();
-            // Actualizar versículos "hasta" al capítulo seleccionado
             fillVerses(toVerseSelect, caps[fromCap]);
-            // Opcional: resetear versículo "hasta"
             toVerseSelect.value = '';
         }
-
-        // Si capítulo "desde" y "hasta" son iguales, limitar versículos "hasta" para que sea >= versículo desde
-        // Lo hacemos también en el evento de fromVerseSelect más abajo
     });
 
     toChapterSelect.addEventListener('change', () => {
@@ -454,7 +265,6 @@ if (isset($_GET['action'], $_GET['id'])) {
         }
     });
 
-    // Evento para limitar versículo "hasta" cuando capítulo desde y hasta son iguales
     fromVerseSelect.addEventListener('change', () => {
         const libro = bookSelect.value;
         const fromCap = parseInt(fromChapterSelect.value);
@@ -473,13 +283,11 @@ if (isset($_GET['action'], $_GET['id'])) {
             }
             toVerseSelect.disabled = false;
 
-            // Si versículo hasta actual es menor que fromVer, resetearlo
             const currentToVer = parseInt(toVerseSelect.value);
             if (!currentToVer || currentToVer < fromVer) {
                 toVerseSelect.value = '';
             }
         } else if (toCap && versiculosPorCapitulo[libro]?.[toCap]) {
-            // Si capítulos diferentes, simplemente llenar todos los versículos "hasta"
             fillVerses(toVerseSelect, versiculosPorCapitulo[libro][toCap]);
         }
     });
@@ -494,8 +302,8 @@ if (isset($_GET['action'], $_GET['id'])) {
     // Precargar datos al editar
     function precargarLectura() {
         const libro = '<?= isset($lecturaEditar) ? addslashes($lecturaEditar['book']) : '' ?>';
-        const from = '<?= isset($lecturaEditar) ? addslashes(str_replace($lecturaEditar['book'] . ' ', '', $lecturaEditar['from'])) : '' ?>'; // ej: "1:3"
-        const to = '<?= isset($lecturaEditar) ? addslashes(str_replace($lecturaEditar['book'] . ' ', '', $lecturaEditar['to'])) : '' ?>';     // ej: "1:10"
+        const from = '<?= isset($lecturaEditar) ? addslashes(str_replace($lecturaEditar['book'] . ' ', '', $lecturaEditar['from'])) : '' ?>';
+        const to = '<?= isset($lecturaEditar) ? addslashes(str_replace($lecturaEditar['book'] . ' ', '', $lecturaEditar['to'])) : '' ?>';
 
         if (!libro) return;
 
